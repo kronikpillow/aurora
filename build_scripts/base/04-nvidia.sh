@@ -17,4 +17,9 @@ EOF
 rsync -rvKl /ctx/system_files/nvidia/ /
 systemctl enable ublue-nvidia-flatpak-runtime-sync.service
 
+# Configure Docker with NVIDIA runtime and CDI support if Docker is installed (e.g. on DX images)
+if command -v docker >/dev/null 2>&1 && command -v nvidia-ctk >/dev/null 2>&1; then
+    nvidia-ctk runtime configure --runtime=docker --cdi.enabled
+fi
+
 echo "::endgroup::"

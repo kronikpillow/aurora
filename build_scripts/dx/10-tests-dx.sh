@@ -32,4 +32,9 @@ for unit in "${IMPORTANT_UNITS[@]}"; do
     fi
 done
 
+if [[ "${IMAGE_NAME}" =~ nvidia ]]; then
+    test -f /etc/docker/daemon.json || { echo "Missing /etc/docker/daemon.json on nvidia dx image"; exit 1; }
+    grep -q "nvidia-container-runtime" /etc/docker/daemon.json || { echo "NVIDIA runtime not configured in /etc/docker/daemon.json"; exit 1; }
+fi
+
 echo "::endgroup::"
