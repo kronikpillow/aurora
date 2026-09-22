@@ -7,6 +7,22 @@ set -ouex pipefail
 # Apply IP Forwarding before installing Docker to prevent messing with LXC networking
 sysctl -p
 
+dnf_retry() {
+    local retries=5
+    local wait=20
+    local count=1
+    until "$@"; do
+        local exit_code=$?
+        count=$((count + 1))
+        if [ $count -gt $retries ]; then
+            echo "Command failed after $retries attempts: $*"
+            return $exit_code
+        fi
+        echo "Command failed with exit code $exit_code. Retrying in ${wait}s (attempt $count/$retries)..."
+        sleep $wait
+    done
+}
+
 # DX packages from Fedora repos - common to all versions
 FEDORA_PACKAGES=(
     android-tools
@@ -62,14 +78,14 @@ if [[ ! "${IMAGE_NAME}" =~ nvidia ]]; then
 fi
 
 echo "Installing ${#FEDORA_PACKAGES[@]} DX packages from Fedora repos..."
-dnf5 -y install "${FEDORA_PACKAGES[@]}"
+dnf_retry dnf5 -y install "${FEDORA_PACKAGES[@]}"
 
 # docker is not available for f45 yet
 # https://github.com/docker/docker-ce-packaging/issues/1353
 # TODO: get it from docker again once it's available
 if [[ $(rpm -E %fedora) == "44" ]]; then
   # Docker packages from their repo
-  dnf -y install --from-repo=docker-ce-stable \
+  dnf_retry dnf -y install --from-repo=docker-ce-stable \
       containerd.io \
       docker-buildx-plugin \
       docker-ce \
@@ -79,7 +95,7 @@ else
   # we get this from common, the fedora package provides the exact same one
   rm -f /usr/lib/sysusers.d/docker.conf
 
-  dnf -y install \
+  dnf_retry dnf -y install \
     containerd \
     docker-buildx \
     moby-engine \
@@ -88,12 +104,13 @@ else
 fi
 
 # VSCode package from Microsoft repo
-dnf -y install --from-repo=code \
+dnf_retry dnf -y install --from-repo=code \
     code
 
-dnf -y install --from-repo='copr:copr.fedorainfracloud.org:karmab:kcli' kcli
+dnf_retry dnf -y install --from-repo='copr:copr.fedorainfracloud.org:karmab:kcli' kcli
 
-dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ublue-os:packages' ublue-os-libvirt-workarounds
+dnf_retry dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ublue-os:packages' ublue-os-libvirt-workarounds
+
 
 rsync -rvK /ctx/system_files/dx/ /
 

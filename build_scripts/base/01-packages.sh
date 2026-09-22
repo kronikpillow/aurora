@@ -10,6 +10,22 @@ dnf versionlock add "qt6-*" "plasma-desktop"
 
 PLASMA_VERS=$(rpm -q --qf "%{VERSION}" plasma-desktop)
 
+dnf_retry() {
+    local retries=5
+    local wait=20
+    local count=1
+    until "$@"; do
+        local exit_code=$?
+        count=$((count + 1))
+        if [ $count -gt $retries ]; then
+            echo "Command failed after $retries attempts: $*"
+            return $exit_code
+        fi
+        echo "Command failed with exit code $exit_code. Retrying in ${wait}s (attempt $count/$retries)..."
+        sleep $wait
+    done
+}
+
 OVERRIDES=(
     "intel-gmmlib"
     "intel-mediasdk"
@@ -29,7 +45,7 @@ OVERRIDES=(
 # https://packages.fedoraproject.org/pkgs/libheif/libheif/fedora-45.html
 dnf5 remove -y libheif-ffmpeg || true
 
-dnf5 distro-sync --skip-unavailable -y --repo='fedora-multimedia' "${OVERRIDES[@]}"
+dnf_retry dnf5 distro-sync --skip-unavailable -y --repo='fedora-multimedia' "${OVERRIDES[@]}"
 dnf5 versionlock add "${OVERRIDES[@]}"
 
 FEDORA_PACKAGES=(
@@ -129,10 +145,10 @@ if [[ $(arch) == x86_64 ]]; then
   PACKAGES+=( "${FEDORA_PACKAGES_AMD64[@]}" "${NEGATIVO_PACKAGES_AMD64[@]}" )
 fi
 
-dnf -y install --enablerepo='fedora-multimedia' "${PACKAGES[@]}"
+dnf_retry dnf -y install --enablerepo='fedora-multimedia' "${PACKAGES[@]}"
 
 # Fedora Tailscale is usually behind
-dnf -y install --from-repo='tailscale-stable' tailscale
+dnf_retry dnf -y install --from-repo='tailscale-stable' tailscale
 
 COPR_UBLUE_OS_PACKAGES=(
     kcm_ublue
@@ -143,11 +159,11 @@ COPR_UBLUE_OS_PACKAGES=(
     uupd
   )
 
-dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ublue-os:packages' "${COPR_UBLUE_OS_PACKAGES[@]}"
+dnf_retry dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ublue-os:packages' "${COPR_UBLUE_OS_PACKAGES[@]}"
 
-dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ledif:kairpods' kairpods
+dnf_retry dnf -y install --from-repo='copr:copr.fedorainfracloud.org:ledif:kairpods' kairpods
 
-dnf -y install --from-repo='copr:copr.fedorainfracloud.org:lizardbyte:stable' sunshine
+dnf_retry dnf -y install --from-repo='copr:copr.fedorainfracloud.org:lizardbyte:stable' sunshine
 
 # Packages to exclude - common to all versions
 EXCLUDED_PACKAGES=(
@@ -178,7 +194,7 @@ dnf -y remove "${EXCLUDED_PACKAGES[@]}"
 #fi
 
 # https://invent.kde.org/plasma/plasma-setup/-/issues/72
-dnf -y swap --from-repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
+dnf_retry dnf -y swap --from-repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
   plasma-setup plasma-setup-"${PLASMA_VERS}"-*.aurora
 
 dnf versionlock add plasma-setup
