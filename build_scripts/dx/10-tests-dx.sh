@@ -4,17 +4,26 @@ echo "::group:: ===$(basename "$0")==="
 
 set -eoux pipefail
 
-IMPORTANT_PACKAGES_DX=(
-    code
-    # containerd.io
-    containerd
-    # docker-ce
-    # docker-buildx-plugin
-    # docker-compose-plugin
-    flatpak-builder
-    libvirt
-    qemu
-)
+if [[ $(rpm -E %fedora) == "44" ]]; then
+    IMPORTANT_PACKAGES_DX=(
+        code
+        containerd.io
+        docker-ce
+        docker-buildx-plugin
+        docker-compose-plugin
+        flatpak-builder
+        libvirt
+        qemu
+    )
+else
+    IMPORTANT_PACKAGES_DX=(
+        code
+        containerd
+        flatpak-builder
+        libvirt
+        qemu
+    )
+fi
 
 for package in "${IMPORTANT_PACKAGES_DX[@]}"; do
     rpm -q "${package}" >/dev/null || { echo "Missing package: ${package}... Exiting"; exit 1 ; }
